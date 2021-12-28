@@ -7,4 +7,7 @@ lint:	format
 format:
 	python -m black SciFiPaint/
 
-.PHONY:	lint
+reqs:
+	pip install -r requirements.txt
+
+.PHONY:	run lint format reqs

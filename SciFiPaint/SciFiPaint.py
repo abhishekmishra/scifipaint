@@ -6,6 +6,8 @@ import os
 import sys
 import argparse
 from platformdirs import PlatformDirs
+from PIL import ImageGrab
+
 
 IMAGE_FILE_TYPES = [("JPG Files", "*.jpg *.jpeg"), ("PNG Files", "*.png")]
 
@@ -74,6 +76,23 @@ def sfthandler(command=None):
     return wrap
 
 
+def save_element_as_file(element, filename):
+    """
+    Saves any element as an image file.  Element needs to have an underlyiong Widget available (almost if not all of them do)
+    :param element: The element to save
+    :param filename: The filename to save to. The extension of the filename determines the format (jpg, png, gif, ?)
+    """
+    widget = element.Widget
+    box = (
+        widget.winfo_rootx(),
+        widget.winfo_rooty(),
+        widget.winfo_rootx() + widget.winfo_width(),
+        widget.winfo_rooty() + widget.winfo_height(),
+    )
+    grab = ImageGrab.grab(bbox=box)
+    grab.save(filename)
+
+
 class Painter:
     def __init__(self):
         self.dirty = False
@@ -101,10 +120,8 @@ class Painter:
 
     def savefile(self):
         if self.filepath:
-            raise ValueError("not implemented yet")
-            # with open(self.filepath, "w") as f:
-            #     f.write(self.content)
-            # self.dirty = False
+            save_element_as_file(window["cnv"], self.filepath)
+            self.dirty = False
         else:
             raise ValueError("filepath is not set.")
 
@@ -118,6 +135,7 @@ def cnvpenmove(**kwargs):
     painter.pendown = True
     painter.cx = cnv.user_bind_event.x
     painter.cy = cnv.user_bind_event.y
+    painter.dirty = True
     if painter.pendown:
         dia = 6
         r = dia / 2
@@ -136,6 +154,7 @@ def cnvpenmove(**kwargs):
     cnv = kwargs["window"]["cnv"]
     painter.cx = cnv.user_bind_event.x
     painter.cy = cnv.user_bind_event.y
+    painter.dirty = True
     if painter.pendown:
         dia = 6
         r = dia / 2
@@ -155,6 +174,7 @@ def cnvpenup(**kwargs):
     painter.pendown = False
     painter.cx = cnv.user_bind_event.x
     painter.cy = cnv.user_bind_event.y
+    painter.dirty = True
 
 
 @sfthandler(command="new_file")
@@ -162,10 +182,6 @@ def new_file(**kwargs):
     if not run_command("confirm_save", **kwargs):
         return
     painter.newfile()
-    kwargs["window"]["ed"].update(value=painter.content)
-    # reset the undo stack, and clear the edit modified flag
-    kwargs["window"]["ed"].Widget.edit_reset()
-    kwargs["window"]["ed"].Widget.edit_modified(False)
 
 
 @sfthandler(command="confirm_save")
@@ -202,33 +218,41 @@ def open_file(filename=None, **kwargs):
     if not run_command("confirm_save", **kwargs):
         return
     if filename is None:
-        intial_folder = None
-        if sg.running_mac():
-            filename = tk.filedialog.askopenfilename(
-                initialdir=intial_folder
-            )  # show the 'get file' dialog box
-        else:
-            filename = tk.filedialog.askopenfilename(
-                filetypes=IMAGE_FILE_TYPES,
-                initialdir=intial_folder,
-                parent=kwargs["window"].TKroot,
-            )  # show the 'get file' dialog box
+        filename = choose_file_to_open(kwargs["window"].TKroot)
     if filename:
         painter.set_filepath(filename)
-        kwargs["window"]["ed"].update(value=painter.content)
-        # reset the undo stack, and clear the edit modified flag
-        kwargs["window"]["ed"].Widget.edit_reset()
-        kwargs["window"]["ed"].Widget.edit_modified(False)
-
         return filename
+
+
+def choose_file_to_open(rootwin):
+    intial_folder = None
+    filename = None
+    if sg.running_mac():
+        filename = tk.filedialog.askopenfilename(initialdir=intial_folder)
+    else:
+        filename = tk.filedialog.askopenfilename(
+            filetypes=IMAGE_FILE_TYPES,
+            initialdir=intial_folder,
+            parent=rootwin,
+        )
+    return filename
+
+def choose_file_to_save(rootwin):
+    intial_folder = None
+    filename = tk.filedialog.asksaveasfilename(
+        filetypes=IMAGE_FILE_TYPES,
+        initialdir=intial_folder,
+        parent=rootwin,
+    )
+    return filename
 
 
 @sfthandler(command="save_file")
 def save_file(**kwargs):
+    if painter.filepath is None:
+        painter.filepath = choose_file_to_save(kwargs["window"].TKroot)
     if painter.filepath:
         painter.savefile()
-    else:
-        sg.popup_ok("need to ask the user for filename")
 
 
 @sfthandler(command="toggle_fullscreen")
@@ -315,13 +339,16 @@ def run_app():
     while True:
         event, values = window.read()
         if event == sg.WIN_CLOSED or event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT:
-            break
+            if not run_command("confirm_save", window, event, values):
+                continue
+            else:
+                break
 
         if is_command(event):
             run_command(event, window, event, values)
 
         run_command("window_title", window, None, None)
 
-        print(event, values, window['cnv'].user_bind_event)
+        print(event, values, window["cnv"].user_bind_event)
 
     window.close()
