@@ -1,3 +1,6 @@
+run:
+	python -m SciFiPaint
+
 lint:	format
 	python -m flake8 SciFiPaint/
 

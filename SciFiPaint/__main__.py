@@ -1,4 +1,4 @@
-from .SciFiPaint import window, run_app
+from .SciFiPaint import run_app
 
 if __name__ == "__main__":
     run_app()

@@ -1,6 +1,6 @@
 import PySimpleGUI as sg
 
-layout = [[sg.Canvas(k="cnv")]]
+layout = [[sg.Canvas(size=(400, 300), background_color="white", k="cnv")]]
 
 window = sg.Window(
     "SciFiPaint",
