@@ -3,11 +3,11 @@ from SciFiCmdr import commander, register_command, register_handler
 from SciFiCmdr import is_command, get_handlers
 import tkinter as tk
 import os
+import sys
+import argparse
+from platformdirs import PlatformDirs
 
-IMAGE_FILE_TYPES = [
-    ('JPG Files', '*.jpg *.jpeg'),
-    ('PNG Files', '*.png')
-]
+IMAGE_FILE_TYPES = [("JPG Files", "*.jpg *.jpeg"), ("PNG Files", "*.png")]
 
 __version__ = "0.0.1"
 
@@ -73,6 +73,7 @@ def sfthandler(command=None):
 
     return wrap
 
+
 class Painter:
     def __init__(self):
         self.dirty = False
@@ -84,7 +85,7 @@ class Painter:
     def set_filepath(self, fpath):
         self.filepath = fpath
         if os.path.isfile(self.filepath):
-            raise ValueError('not implemented')
+            raise ValueError("not implemented")
             # with open(self.filepath, "r") as f:
             #     self.content = f.read()
         else:
@@ -100,7 +101,7 @@ class Painter:
 
     def savefile(self):
         if self.filepath:
-            raise ValueError('not implemented yet')
+            raise ValueError("not implemented yet")
             # with open(self.filepath, "w") as f:
             #     f.write(self.content)
             # self.dirty = False
@@ -109,6 +110,52 @@ class Painter:
 
 
 painter = Painter()
+
+
+@sfthandler(command="cnvpendown")
+def cnvpenmove(**kwargs):
+    cnv = kwargs["window"]["cnv"]
+    painter.pendown = True
+    painter.cx = cnv.user_bind_event.x
+    painter.cy = cnv.user_bind_event.y
+    if painter.pendown:
+        dia = 6
+        r = dia / 2
+        cnv.tk_canvas.create_oval(
+            painter.cx - r,
+            painter.cy - r,
+            painter.cx + r,
+            painter.cy + r,
+            fill="red",
+            outline="blue",
+        )
+
+
+@sfthandler(command="cnvpenmove")
+def cnvpenmove(**kwargs):
+    cnv = kwargs["window"]["cnv"]
+    painter.cx = cnv.user_bind_event.x
+    painter.cy = cnv.user_bind_event.y
+    if painter.pendown:
+        dia = 6
+        r = dia / 2
+        cnv.tk_canvas.create_oval(
+            painter.cx - r,
+            painter.cy - r,
+            painter.cx + r,
+            painter.cy + r,
+            fill="red",
+            outline="blue",
+        )
+
+
+@sfthandler(command="cnvpenup")
+def cnvpenup(**kwargs):
+    cnv = kwargs["window"]["cnv"]
+    painter.pendown = False
+    painter.cx = cnv.user_bind_event.x
+    painter.cy = cnv.user_bind_event.y
+
 
 @sfthandler(command="new_file")
 def new_file(**kwargs):
@@ -214,7 +261,31 @@ def window_title(**kwargs):
     kwargs["window"].set_title(title_text)
 
 
-layout = [[sg.Canvas(size=(400, 300), background_color="white", k="cnv")]]
+def get_config():
+    pd = PlatformDirs("scifipaint")
+    config_dir = pd.user_config_dir
+    if not os.path.exists(config_dir):
+        os.makedirs(config_dir)
+    sys.path.append(config_dir)
+    main_config_file = os.path.join(config_dir, "stfucfg.py")
+    if not os.path.exists(main_config_file):
+        print(main_config_file, "does not exist")
+    else:
+        __import__("stfucfg")
+
+
+def get_args():
+    arg_parser = argparse.ArgumentParser(
+        "scifipaint: minimal paint application"
+    )
+    arg_parser.add_argument(
+        "filename", help="path to the file to open", nargs="?"
+    )
+    args = arg_parser.parse_args()
+    return args
+
+
+layout = [[sg.Canvas(size=(1000, 800), background_color="white", k="cnv")]]
 
 window = sg.Window(
     "SciFiPaint",
@@ -233,13 +304,24 @@ window.bind("<Control-s>", "save_file")
 window.bind("<F11>", "toggle_fullscreen")
 window.bind("<Control-P>", "commandbar")
 
+window["cnv"].bind("<ButtonPress-1>", "pendown")
+window["cnv"].bind("<ButtonRelease-1>", "penup")
+window["cnv"].bind("<B1-Motion>", "penmove")
+
 window["cnv"].set_focus(force=True)
+
 
 def run_app():
     while True:
         event, values = window.read()
         if event == sg.WIN_CLOSED or event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT:
             break
-        print("You entered ", values[0])
+
+        if is_command(event):
+            run_command(event, window, event, values)
+
+        run_command("window_title", window, None, None)
+
+        print(event, values, window['cnv'].user_bind_event)
 
     window.close()
