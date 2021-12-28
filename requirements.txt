@@ -2,3 +2,4 @@ pysimplegui
 black
 flake8
 -e ../scificmdr
+platformdirs

@@ -6,6 +6,7 @@ setup(
     packages=["SciFiPaint"],
     install_requires=[
         "pysimplegui",
-        "SciFiCmdr"
+        "SciFiCmdr",
+        "platformdirs"
     ],
 )
