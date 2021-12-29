@@ -1,6 +1,6 @@
 import PySimpleGUI as sg
 from SciFiCmdr import commander, register_command, register_handler
-from SciFiCmdr import is_command, get_handlers
+from SciFiCmdr import is_command, run_command, cmdhandler
 import tkinter as tk
 import os
 import sys
@@ -9,54 +9,13 @@ from platformdirs import PlatformDirs
 from PIL import ImageGrab
 from PIL import Image, ImageTk
 from pathlib import Path
+import logging
 
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
 IMAGE_FILE_TYPES = [("JPG Files", "*.jpg *.jpeg"), ("PNG Files", "*.png")]
 
 __version__ = "0.0.1"
-
-register_command("text_undo")
-register_command("text_redo")
-register_command("new_file")
-register_command("confirm_save")
-register_command("open_file")
-register_command("save_file")
-register_command("toggle_fullscreen")
-register_command("commandbar")
-register_command("window_title")
-register_command("about")
-register_command("cnvpendown")
-register_command("cnvpenmove")
-register_command("cnvpenup")
-
-
-def run_command(command_name, window=None, event=None, values=None, **kwargs):
-    """
-    Run command given by command_name(str) with arguments window, event,
-    and values from the pysimplegui window
-
-    Parameters:
-        command_name (str): name of the command to run.
-            program will look for method '%command_name%'
-            in global scope to run.
-
-        window, event, values: the objects from pysimplegui window
-            these will be passed as-is to the command function if found.
-
-    Returns:
-        Return value of executed command function.
-
-    Throws:
-        NameError if cmd_%command_name% not found.
-    """
-    if is_command(command_name) is not None:
-        cmd_handlers = get_handlers(command_name)
-        ret = None
-        for cmdfn in cmd_handlers:
-            ret = cmdfn(window=window, event=event, values=values, **kwargs)
-        return ret
-    else:
-        NameError(command_name + " is not a command")
 
 
 def do(command_name, **kwargs):
@@ -64,18 +23,6 @@ def do(command_name, **kwargs):
     e = kwargs.get("event", None)
     v = kwargs.get("values", None)
     run_command(command_name, window=w, event=e, values=v, **kwargs)
-
-
-# see https://stackoverflow.com/a/54030205/9483968
-def sfthandler(command=None):
-    def wrap(f):
-        if command is not None and is_command(command):
-            register_handler(command, f)
-        else:
-            raise KeyError(command, "is not a registered command")
-        return f
-
-    return wrap
 
 
 def save_element_as_file(element, filename):
@@ -149,8 +96,8 @@ class Painter:
 painter = Painter()
 
 
-@sfthandler(command="cnvpendown")
-def cnvpenmove(**kwargs):
+@cmdhandler()
+def cnv_penmove(**kwargs):
     cnv = kwargs["window"]["cnv"]
     painter.pendown = True
     painter.cx = cnv.user_bind_event.x
@@ -169,8 +116,8 @@ def cnvpenmove(**kwargs):
         )
 
 
-@sfthandler(command="cnvpenmove")
-def cnvpenmove(**kwargs):
+@cmdhandler()
+def cnv_penmove(**kwargs):
     cnv = kwargs["window"]["cnv"]
     painter.cx = cnv.user_bind_event.x
     painter.cy = cnv.user_bind_event.y
@@ -188,8 +135,8 @@ def cnvpenmove(**kwargs):
         )
 
 
-@sfthandler(command="cnvpenup")
-def cnvpenup(**kwargs):
+@cmdhandler()
+def cnv_penup(**kwargs):
     cnv = kwargs["window"]["cnv"]
     painter.pendown = False
     painter.cx = cnv.user_bind_event.x
@@ -197,14 +144,14 @@ def cnvpenup(**kwargs):
     painter.dirty = True
 
 
-@sfthandler(command="new_file")
+@cmdhandler()
 def new_file(**kwargs):
     if not run_command("confirm_save", **kwargs):
         return
     painter.newfile()
 
 
-@sfthandler(command="confirm_save")
+@cmdhandler()
 def confirm_save(**kwargs):
     if painter.dirty:
         save_continue_msg = """
@@ -233,7 +180,7 @@ def confirm_save(**kwargs):
         return True
 
 
-@sfthandler(command="open_file")
+@cmdhandler()
 def open_file(filename=None, **kwargs):
     if not run_command("confirm_save", **kwargs):
         return
@@ -268,7 +215,7 @@ def choose_file_to_save(rootwin):
     return filename
 
 
-@sfthandler(command="save_file")
+@cmdhandler()
 def save_file(**kwargs):
     if painter.filepath is None:
         painter.filepath = choose_file_to_save(kwargs["window"].TKroot)
@@ -276,7 +223,7 @@ def save_file(**kwargs):
         painter.savefile()
 
 
-@sfthandler(command="toggle_fullscreen")
+@cmdhandler()
 def toggle_fullscreen(**kwargs):
     if "window" in kwargs.keys():
         w = kwargs["window"]
@@ -286,7 +233,7 @@ def toggle_fullscreen(**kwargs):
             w.maximize()
 
 
-@sfthandler(command="commandbar")
+@cmdhandler()
 def commandbar(**kwargs):
     cmd = commander()
     if cmd:
@@ -294,7 +241,7 @@ def commandbar(**kwargs):
     return cmd
 
 
-@sfthandler(command="window_title")
+@cmdhandler()
 def window_title(**kwargs):
     fmtstr = "{program_name} {program_version} - '{file_name}' {dirty_status}"
     title_text = fmtstr.format(
@@ -349,9 +296,9 @@ window.bind("<Control-s>", "save_file")
 window.bind("<F11>", "toggle_fullscreen")
 window.bind("<Control-P>", "commandbar")
 
-window["cnv"].bind("<ButtonPress-1>", "pendown")
-window["cnv"].bind("<ButtonRelease-1>", "penup")
-window["cnv"].bind("<B1-Motion>", "penmove")
+window["cnv"].bind("<ButtonPress-1>", "_pendown")
+window["cnv"].bind("<ButtonRelease-1>", "_penup")
+window["cnv"].bind("<B1-Motion>", "_penmove")
 
 window["cnv"].set_focus(force=True)
 
@@ -360,13 +307,15 @@ def run_app():
     while True:
         event, values = window.read()
         if event == sg.WIN_CLOSED or event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT:
-            if not run_command("confirm_save", window, event, values):
+            if not run_command(
+                "confirm_save", window=window, event=event, values=values
+            ):
                 continue
             else:
                 break
 
         if is_command(event):
-            run_command(event, window, event, values)
+            run_command(event, window=window, event=event, values=values)
 
         # print(event, values, window["cnv"].user_bind_event)
 
