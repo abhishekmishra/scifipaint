@@ -7,6 +7,8 @@ import sys
 import argparse
 from platformdirs import PlatformDirs
 from PIL import ImageGrab
+from PIL import Image
+from pathlib import Path
 
 
 IMAGE_FILE_TYPES = [("JPG Files", "*.jpg *.jpeg"), ("PNG Files", "*.png")]
@@ -93,6 +95,21 @@ def save_element_as_file(element, filename):
     grab.save(filename)
 
 
+def save_element_ps_method(element, filename):
+    canvas = element.Widget
+
+    outf = Path(filename)
+    ps_outf = outf.with_suffix('.eps')
+
+    # save postscipt image 
+    canvas.postscript(file = ps_outf) 
+    # use PIL to convert to PNG 
+    img = Image.open(ps_outf) 
+    img.save(outf)
+    os.remove(ps_outf)
+
+
+
 class Painter:
     def __init__(self):
         self.dirty = False
@@ -119,11 +136,14 @@ class Painter:
         self.cy = 0
 
     def savefile(self):
-        if self.filepath:
-            save_element_as_file(window["cnv"], self.filepath)
-            self.dirty = False
-        else:
-            raise ValueError("filepath is not set.")
+        try:
+            if self.filepath:
+                save_element_ps_method(window["cnv"], self.filepath)
+                self.dirty = False
+            else:
+                raise ValueError("filepath is not set.")
+        except Exception as e:
+            print('fatal error: ', e)
 
 
 painter = Painter()
@@ -349,6 +369,6 @@ def run_app():
 
         run_command("window_title", window, None, None)
 
-        print(event, values, window["cnv"].user_bind_event)
+        #print(event, values, window["cnv"].user_bind_event)
 
     window.close()
