@@ -120,9 +120,12 @@ class Painter:
     def set_filepath(self, fpath):
         self.filepath = fpath
         if os.path.isfile(self.filepath):
-            print('opening {}'.format(self.filepath))
-            img = ImageTk.PhotoImage(Image.open(self.filepath))
-            window['cnv'].Widget.create_image(1, 1, anchor='nw', image=img)
+            # see https://stackoverflow.com/a/26479906/9483968
+            # if image is not stored, it is garbage collected before
+            # use in the canvas
+            self.img = ImageTk.PhotoImage(Image.open(self.filepath))
+            canvas = window["cnv"].Widget
+            canvas.create_image(0, 0, image=self.img, anchor="nw")
         self.dirty = False
 
     def newfile(self):
