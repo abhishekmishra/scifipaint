@@ -7,7 +7,7 @@ import sys
 import argparse
 from platformdirs import PlatformDirs
 from PIL import ImageGrab
-from PIL import Image
+from PIL import Image, ImageTk
 from pathlib import Path
 
 
@@ -120,11 +120,9 @@ class Painter:
     def set_filepath(self, fpath):
         self.filepath = fpath
         if os.path.isfile(self.filepath):
-            raise ValueError("not implemented")
-            # with open(self.filepath, "r") as f:
-            #     self.content = f.read()
-        else:
-            self.content = ""
+            print('opening {}'.format(self.filepath))
+            img = ImageTk.PhotoImage(Image.open(self.filepath))
+            window['cnv'].Widget.create_image(1, 1, anchor='nw', image=img)
         self.dirty = False
 
     def newfile(self):
@@ -366,8 +364,6 @@ def run_app():
 
         if is_command(event):
             run_command(event, window, event, values)
-
-        run_command("window_title", window, None, None)
 
         # print(event, values, window["cnv"].user_bind_event)
 
