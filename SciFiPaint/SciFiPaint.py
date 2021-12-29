@@ -99,15 +99,14 @@ def save_element_ps_method(element, filename):
     canvas = element.Widget
 
     outf = Path(filename)
-    ps_outf = outf.with_suffix('.eps')
+    ps_outf = outf.with_suffix(".eps")
 
-    # save postscipt image 
-    canvas.postscript(file = ps_outf) 
-    # use PIL to convert to PNG 
-    img = Image.open(ps_outf) 
+    # save postscipt image
+    canvas.postscript(file=ps_outf)
+    # use PIL to convert to PNG
+    img = Image.open(ps_outf)
     img.save(outf)
     os.remove(ps_outf)
-
 
 
 class Painter:
@@ -143,7 +142,7 @@ class Painter:
             else:
                 raise ValueError("filepath is not set.")
         except Exception as e:
-            print('fatal error: ', e)
+            print("fatal error: ", e)
 
 
 painter = Painter()
@@ -257,6 +256,7 @@ def choose_file_to_open(rootwin):
         )
     return filename
 
+
 def choose_file_to_save(rootwin):
     intial_folder = None
     filename = tk.filedialog.asksaveasfilename(
@@ -369,6 +369,6 @@ def run_app():
 
         run_command("window_title", window, None, None)
 
-        #print(event, values, window["cnv"].user_bind_event)
+        # print(event, values, window["cnv"].user_bind_event)
 
     window.close()
